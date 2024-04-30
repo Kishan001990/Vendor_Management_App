@@ -4,4 +4,4 @@ from .models import HistoricalPerformance
 class HistoricalPerformaceSerializer(serializers.ModelSerializer):
     class Meta:
         model = HistoricalPerformance
-        fields = '__all__'
+        fields = ['date', 'on_time_delivery_rate', 'quality_rating_avg', 'average_response_time', 'fulfillment_rate']
