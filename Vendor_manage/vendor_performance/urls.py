@@ -1,6 +1,6 @@
 from django.urls import path
-from .views import HistoricalPerformanceListCreateAPIView
+from .views import PerformanceCreateView
 
 urlpatterns = [
-    path('api/vendors/<int:id>/performance', HistoricalPerformanceListCreateAPIView.as_view(), name='purchase-order-list-create')
+    path('api/vendors/<int:pk>/performance/', PerformanceCreateView.as_view(), name='vendor_performance'),
 ]

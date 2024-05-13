@@ -1,28 +1,45 @@
-from purchase_order.models import PurchaseOrder
-from .models import HistoricalPerformance
-import datetime
-import models
+from datetime import datetime
+from django.db import models
 
-def calculate_vendor_performance(vendor):
-    completed_orders = vendor.purchaseorder_set.filter(status='completed')
-    total_orders = vendor.purchaseorder_set.all()
 
-    # Calculate metrics
-    on_time_delivery_rate = (completed_orders.filter(delivery_date__lte=models.F('acknowledgment_date')).count() / completed_orders.count()) * 100 if completed_orders.count() > 0 else 0.0
-    quality_rating_avg = sum(completed_orders.exclude(quality_rating=None).values_list('quality_rating', flat=True)) / completed_orders.exclude(quality_rating=None).count() if completed_orders.exclude(quality_rating=None).count() > 0 else 0.0
-    response_times = completed_orders.exclude(acknowledgment_date=None).annotate(
-        response_time=models.ExpressionWrapper(models.F('acknowledgment_date') - models.F('issue_date'), output_field=models.DurationField())
-    ).values_list('response_time', flat=True)
-    average_response_time = sum(response_times, datetime.timedelta()) / len(response_times) if response_times else datetime.timedelta(0)
-    fulfillment_rate = (completed_orders.filter(status='completed').count() / total_orders.count()) * 100 if total_orders.count() > 0 else 0.0
+def calculate_on_time_delivery_rate(vendor):
+    total_completed_orders = vendor.purchase_order.filter(status='completed').count()
+    if total_completed_orders == 0:
+        return 0
 
-    # Create historical performance record
-    historical_performance = HistoricalPerformance(
-        vendor=vendor,
-        date=datetime.datetime.now(),
-        on_time_delivery_rate=on_time_delivery_rate,
-        quality_rating_avg=quality_rating_avg,
-        average_response_time=average_response_time.total_seconds() / 3600,  # Convert to hours
-        fulfillment_rate=fulfillment_rate
-    )
-    historical_performance.save()
+    on_time_orders = vendor.purchase_order.filter(
+        status='completed',
+        delivery_date__lte=datetime.now()  # Assuming delivery_date is a DateTimeField
+    ).count()
+
+    return (on_time_orders / total_completed_orders) * 100
+
+def calculate_quality_rating_avg(vendor):
+    completed_orders = vendor.purchase_order.filter(status='completed').exclude(quality_rating__isnull=True)
+    if not completed_orders.exists():
+        return 0
+
+    total_quality_ratings = completed_orders.aggregate(total=models.Sum('quality_rating'))['total']
+    total_orders = completed_orders.count()
+
+    return total_quality_ratings / total_orders
+
+def calculate_average_response_time(vendor):
+    completed_orders = vendor.purchase_order.filter(status='completed', acknowledgment_date__isnull=False)
+    if not completed_orders.exists():
+        return 0
+
+    total_response_time = sum((order.acknowledgment_date - order.issue_date).days for order in completed_orders)
+    total_orders = completed_orders.count()
+
+    return total_response_time / total_orders
+
+def calculate_fulfillment_rate(vendor):
+    total_orders = vendor.purchase_order.count()
+    if total_orders == 0:
+        return 0
+
+    successful_orders = vendor.purchase_order.filter(status='completed').exclude(issue_date__isnull=True)
+    successful_count = successful_orders.count()
+
+    return (successful_count / total_orders) * 100

@@ -1,8 +1,8 @@
 from django.db import models
-from vendor_profile.models import vendor_profile
+from purchase_order.models import PurchaseOrder
 
 class HistoricalPerformance(models.Model):
-    vendor = models.ForeignKey(vendor_profile, on_delete=models.CASCADE)
+    vendor = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE)
     date = models.DateTimeField()
     on_time_delivery_rate = models.FloatField()
     quality_rating_avg = models.FloatField()
